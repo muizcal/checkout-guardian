@@ -6,6 +6,9 @@
     },
     "openrouter": {
       "name": "OpenRouter"
+    },
+    "render": {
+      "name": "Render"
     }
   },
   "resources": {
@@ -26,6 +29,12 @@
       "name": "openrouter-api",
       "providerName": "OpenRouter",
       "serviceId": "api"
+    },
+    "render-web-service": {
+      "livemode": true,
+      "name": "render-web-service",
+      "providerName": "Render",
+      "serviceId": "web-service"
     }
   }
 }

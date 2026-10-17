@@ -28,6 +28,16 @@
       "redirectUrl": null,
       "requestedAt": "2026-10-17T21:56:58.070Z",
       "status": "complete"
+    },
+    "render": {
+      "accountRequestId": "facctrq_61Vb4Y3VdJXg97JiJ16VDlsN05SQkPOJX7or4IAaGV2e",
+      "configuration": {},
+      "linkedAt": "2026-10-17T23:00:18.902Z",
+      "providerId": "prvdr_61UVwArXdJpejOfkn5POi",
+      "providerName": "Render",
+      "redirectUrl": null,
+      "requestedAt": "2026-10-17T23:00:18.901Z",
+      "status": "complete"
     }
   },
   "resources": {
@@ -66,6 +76,27 @@
       "providerName": "OpenRouter",
       "resourceId": "fres_61Vb3Yy9qgcGtwIgX16VDlsN05SQkPOJX7or4IAaGRGq",
       "serviceId": "api"
+    },
+    "render-web-service": {
+      "configuration": {
+        "instance_type": "free",
+        "name": "checkout-guardian",
+        "repo": "https://github.com/muizcal/checkout-guardian",
+        "branch": "main",
+        "runtime": "node",
+        "build_command": "npm install",
+        "start_command": "npm start",
+        "auto_deploy": "yes"
+      },
+      "createdAt": "2026-10-17T23:00:27.746Z",
+      "lastRevealedAt": "2026-10-17T23:00:30.506Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "render-web-service",
+      "providerId": "prvdr_61UVwArXdJpejOfkn5POi",
+      "providerName": "Render",
+      "resourceId": "fres_61Vb4YFH0SRzRdceI16VDlsN05SQkPOJX7or4IAaGJ8K",
+      "serviceId": "web-service"
     }
   }
 }

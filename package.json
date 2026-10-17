@@ -1,0 +1,1 @@
+{"name":"checkout-guardian","version":"0.1.0","private":true,"scripts":{"agent":"node --env-file=.env agent/agent.js","agent:local":"node --env-file=.env agent/agent.js --local","test:store":"cd demo-store && node --test","start":"node server.js","dev":"node --env-file=.env server.js"},"dependencies":{"@nodeops-createos/sandbox":"latest"}}

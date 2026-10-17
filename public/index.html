@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CheckoutGuardian AI</title>
+<style>
+:root{--bg:#fff;--fg:#111827;--mut:#6b7280;--card:#f3f4f6;--line:#e5e7eb;--ok:#15803d;--bad:#b91c1c;--acc:#4f46e5}
+@media (prefers-color-scheme:dark){:root{--bg:#0f172a;--fg:#e5e7eb;--mut:#94a3b8;--card:#1e293b;--line:#334155;--ok:#4ade80;--bad:#f87171;--acc:#818cf8}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:900px;margin:0 auto;padding:24px 16px}h1{margin:0 0 4px;font-size:26px}p.sub{margin:0 0 20px;color:var(--mut)}
+button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:10px 18px;font-size:15px;cursor:pointer;margin-right:8px}
+button.alt{background:var(--card);color:var(--fg);border:1px solid var(--line)}button:disabled{opacity:.5;cursor:wait}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.chip{padding:6px 14px;border-radius:99px;background:var(--card);color:var(--mut);border:1px solid var(--line)}
+.chip.active{border-color:var(--acc);color:var(--acc);font-weight:600}.chip.done{color:var(--ok);border-color:var(--ok)}.chip.fail{color:var(--bad);border-color:var(--bad)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0;overflow-x:auto}
+pre{margin:6px 0 0;font:12.5px/1.45 ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}h3{margin:0;font-size:15px}
+.add{color:var(--ok)}.del{color:var(--bad)}.banner{font-weight:700;font-size:18px}.ok{color:var(--ok)}.bad{color:var(--bad)}#log{max-height:150px;overflow:auto}
+</style></head><body><main>
+<h1>CheckoutGuardian AI</h1>
+<p class="sub">An autonomous agent that finds, fixes and verifies broken Stripe checkout code inside an isolated CreateOS sandbox. Test mode only.</p>
+<button id="run">Fix the broken checkout</button><button id="last" class="alt">Show last run</button>
+<div class="steps" id="steps"></div>
+<div class="card" id="logc" hidden><h3>Live log</h3><pre id="log"></pre></div>
+<div id="out"></div>
+</main><script>
+const $=s=>document.querySelector(s),ST=['diagnose','write','execute','recover','prove'];
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const diff=d=>esc(d).split('\n').map(l=>l[0]=='+'&&l[1]!='+'?`<span class="add">${l}</span>`:l[0]=='-'&&l[1]!='-'?`<span class="del">${l}</span>`:l).join('\n');
+function chips(cur,fail){$('#steps').innerHTML=ST.map(s=>{const i=ST.indexOf(s),c=ST.indexOf(cur);
+ return `<span class="chip ${s==cur?(fail?'fail':'active'):i<c?'done':''}">${i+1}. ${s[0].toUpperCase()+s.slice(1)}</span>`}).join('')}
+function report(r){$('#out').innerHTML=
+ `<div class="card"><div class="banner ${r.fixed?'ok':'bad'}">${r.fixed?'Fixed and verified':'Not fixed within the retry budget'} after ${r.attempts.length} attempt(s)</div></div>
+ <div class="card"><h3>Original failure</h3><pre>${esc(r.originalFailure.slice(0,1500))}</pre></div>`+
+ r.attempts.map(a=>`<div class="card"><h3>Attempt ${a.attempt}: ${a.exitCode===0?'<span class="ok">tests passed</span>':'<span class="bad">tests failed</span>'}</h3>
+ <p>${esc(a.diagnosis||'')}</p><pre>${diff(a.diff||'')}</pre>${a.exitCode?`<pre>${esc(a.output.slice(0,1200))}</pre>`:''}</div>`).join('')+
+ `<div class="card"><h3>Final test results (run in CreateOS sandbox)</h3><pre>${esc(r.finalTestOutput.slice(0,1500))}</pre></div>`}
+async function last(){const r=await fetch('/report');if(!r.ok){$('#out').innerHTML='<div class="card">No saved run yet.</div>';return}const j=await r.json();chips('prove');report(j)}
+$('#last').onclick=last;
+$('#run').onclick=()=>{const b=$('#run');b.disabled=true;$('#out').innerHTML='';$('#log').textContent='';$('#logc').hidden=false;chips('diagnose');
+ const es=new EventSource('/run');let seen='diagnose';
+ es.onmessage=e=>{const m=JSON.parse(e.data);seen=m.stage;
+  $('#log').textContent+=`[${m.stage}] ${m.note||m.diagnosis||(m.passed!==undefined?(m.passed?'tests passed':'tests failed, retrying'):'')||m.message||''}\n`;
+  $('#log').scrollTop=1e9;if(ST.includes(m.stage))chips(m.stage,m.passed===false);if(m.stage==='error')chips('diagnose',true)};
+ es.addEventListener('end',async()=>{es.close();b.disabled=false;if(seen!=='error')await last()});
+ es.onerror=()=>{es.close();b.disabled=false}};
+chips('');
+</script></body></html>

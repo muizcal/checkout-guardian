@@ -42,5 +42,5 @@ $('#run').onclick=()=>{const b=$('#run');b.disabled=true;$('#out').innerHTML='';
   $('#log').scrollTop=1e9;if(ST.includes(m.stage))chips(m.stage,m.passed===false);if(m.stage==='error')chips('diagnose',true)};
  es.addEventListener('end',async()=>{es.close();b.disabled=false;if(seen!=='error')await last()});
  es.onerror=()=>{es.close();b.disabled=false}};
-chips('');
+chips('');last();
 </script></body></html>

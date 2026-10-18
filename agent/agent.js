@@ -48,21 +48,42 @@ async function makeRunner() {
   };
 }
 
-async function askLLM(prompt) {
+function parseReply(t) {
+  const files = {};
+  for (const m of t.matchAll(/=== FILE (\S+) ===\r?\n([\s\S]*?)\r?\n=== END ===/g)) files[m[1]] = m[2].replace(/^```\w*\n|\n```$/g, '');
+  if (!Object.keys(files).length) {
+    try { return JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch {}
+    throw new Error('no files in reply');
+  }
+  const d = t.match(/DIAGNOSIS:\s*(.*)/);
+  return { diagnosis: d ? d[1] : '', files };
+}
+
+async function askLLMOnce(prompt) {
   const res = await fetch(`${process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1'}/chat/completions`, {
     method: 'POST', signal: AbortSignal.timeout(120000),
     headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY}` },
     body: JSON.stringify({
+      max_tokens: 4000,
       model: process.env.LLM_MODEL || 'anthropic/claude-sonnet-4.5',
       messages: [
-        { role: 'system', content: 'You fix bugs in a Stripe Checkout integration. NEVER edit test files. Reply with ONLY JSON: {"diagnosis": string, "files": {"<path>": "<full new file content>"}}' },
+        { role: 'system', content: 'You fix bugs in a Stripe Checkout integration. NEVER edit test files. Reply in this exact format and nothing else: one line starting with DIAGNOSIS: then, for each file you change, a line === FILE path === then the complete new file content, then a line === END ===. No JSON and no markdown fences.' },
         { role: 'user', content: prompt },
       ],
     }),
   });
   const j = await res.json();
   if (!j.choices) throw new Error('LLM error: ' + JSON.stringify(j).slice(0, 300));
-  const t = j.choices[0].message.content; return JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1));
+  return parseReply(j.choices[0].message.content);
+}
+
+async function askLLM(prompt) {
+  let err;
+  for (let i = 1; i <= 3; i++) {
+    try { return await askLLMOnce(prompt); }
+    catch (e) { err = e; emit('retry', { note: 'LLM reply unusable (' + e.message.slice(0, 80) + '), asking again' }); }
+  }
+  throw err;
 }
 
 const unifiedDiff = (before, after) => {
@@ -82,6 +103,7 @@ const unifiedDiff = (before, after) => {
   const attempts = [];
   const runner = await makeRunner();
   try {
+    for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => { try { await runner.close(); } catch {} process.exit(130); });
     await runner.write(current);
     emit('diagnose', { note: 'Running test suite on broken app' });
     let result = await runner.test();

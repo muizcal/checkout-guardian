@@ -1,4 +1,5 @@
-// Demo store checkout logic (intentionally broken: 3 seeded bugs)
+// Demo store checkout logic (intentionally broken: 4 seeded bugs)
+const crypto = require('crypto');
 const PRICES = { tee: 19.99, mug: 12.5, hoodie: 49 }; // dollars
 
 function cartTotal(cart) {
@@ -23,4 +24,12 @@ function buildSessionParams(cart, origin) {
   };
 }
 
-module.exports = { PRICES, cartTotal, buildSessionParams };
+// Stripe-Signature header looks like: t=1700000000,v1=<hex hmac>
+function verifyWebhook(rawBody, header, secret, now = Date.now() / 1000) {
+  // BUG 4: Stripe signs `${timestamp}.${payload}`, and old timestamps must be rejected (replay protection)
+  const parts = Object.fromEntries(header.split(',').map((p) => p.split('=')));
+  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  return parts.v1 === expected;
+}
+
+module.exports = { PRICES, cartTotal, buildSessionParams, verifyWebhook };

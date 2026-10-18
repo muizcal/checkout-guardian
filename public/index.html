@@ -25,12 +25,14 @@ const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[
 const diff=d=>esc(d).split('\n').map(l=>l[0]=='+'&&l[1]!='+'?`<span class="add">${l}</span>`:l[0]=='-'&&l[1]!='-'?`<span class="del">${l}</span>`:l).join('\n');
 function chips(cur,fail){$('#steps').innerHTML=ST.map(s=>{const i=ST.indexOf(s),c=ST.indexOf(cur);
  return `<span class="chip ${s==cur?(fail?'fail':'active'):i<c?'done':''}">${i+1}. ${s[0].toUpperCase()+s.slice(1)}</span>`}).join('')}
+const pj=o=>esc(typeof o==='string'?o:JSON.stringify(o,null,1));
+const probeCard=r=>r.probe?'<div class="card"><h3>App response inside the sandbox: before vs after</h3><pre>BEFORE\n'+pj(r.probe.before)+'\n\nAFTER\n'+pj(r.probe.after)+'</pre></div>':'';
 function report(r){$('#out').innerHTML=
  `<div class="card"><div class="banner ${r.fixed?'ok':'bad'}">${r.fixed?'Fixed and verified':'Not fixed within the retry budget'} after ${r.attempts.length} attempt(s)</div></div>
  <div class="card"><h3>Original failure</h3><pre>${esc(r.originalFailure.slice(0,1500))}</pre></div>`+
  r.attempts.map(a=>`<div class="card"><h3>Attempt ${a.attempt}: ${a.exitCode===0?'<span class="ok">tests passed</span>':'<span class="bad">tests failed</span>'}</h3>
  <p>${esc(a.diagnosis||'')}</p><pre>${diff(a.diff||'')}</pre>${a.exitCode?`<pre>${esc(a.output.slice(0,1200))}</pre>`:''}</div>`).join('')+
- `<div class="card"><h3>Final test results (run in CreateOS sandbox)</h3><pre>${esc(r.finalTestOutput.slice(0,1500))}</pre></div>`}
+ `${probeCard(r)}<div class="card"><h3>Final test results (run in CreateOS sandbox)</h3><pre>${esc(r.finalTestOutput.slice(0,1500))}</pre></div>`}
 async function last(){const r=await fetch('/report');if(!r.ok){$('#out').innerHTML='<div class="card">No saved run yet.</div>';return}const j=await r.json();chips('prove');report(j)}
 $('#last').onclick=last;
 $('#run').onclick=()=>{const b=$('#run');b.disabled=true;$('#out').innerHTML='';$('#log').textContent='';$('#logc').hidden=false;chips('diagnose');

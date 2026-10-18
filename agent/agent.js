@@ -15,12 +15,16 @@ const readStore = () => ({
   'test/checkout.test.js': fs.readFileSync(path.join(STORE, 'test/checkout.test.js'), 'utf8'),
 });
 
+const probeCmd = (dir) => 'cd ' + dir + ' && (PORT=3111 node server.js >/dev/null 2>&1 & P=$!; sleep 1; node -e "fetch(\'http://localhost:3111\').then(r=>r.text()).then(console.log)"; kill $P)';
+const parseProbe = (t = '') => { try { return JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch { return String(t).slice(0, 300) || null; } };
+
 async function makeRunner() {
   if (LOCAL) {
     const dir = fs.mkdtempSync('/tmp/cg-');
     return {
       async write(f) { for (const [p, c] of Object.entries(f)) { fs.mkdirSync(path.dirname(path.join(dir, p)), { recursive: true }); fs.writeFileSync(path.join(dir, p), c); } },
       async test() { const r = spawnSync('node', ['--test'], { cwd: dir, encoding: 'utf8' }); return { exitCode: r.status, output: r.stdout + r.stderr }; },
+      async probe() { return parseProbe(spawnSync('sh', ['-c', probeCmd(dir)], { encoding: 'utf8' }).stdout); },
       async close() {},
     };
   }
@@ -39,6 +43,7 @@ async function makeRunner() {
       const m = out.match(/EXIT:(\d+)\s*$/);
       return { exitCode: m ? Number(m[1]) : 1, output: out.replace(/EXIT:\d+\s*$/, '') };
     },
+    async probe() { return parseProbe(((await sh(probeCmd('/work'))).result || {}).stdout); },
     async close() { await sb.destroy(); },
   };
 }
@@ -81,6 +86,7 @@ const unifiedDiff = (before, after) => {
     emit('diagnose', { note: 'Running test suite on broken app' });
     let result = await runner.test();
     const originalFailure = result.output;
+    const probeBefore = await runner.probe();
     emit('diagnose', { exitCode: result.exitCode, output: originalFailure.slice(0, 800) });
 
     for (let n = 1; n <= MAX_ATTEMPTS && result.exitCode !== 0; n++) {
@@ -98,7 +104,8 @@ const unifiedDiff = (before, after) => {
       current = next;
     }
 
-    const report = { fixed: result.exitCode === 0, originalFailure, attempts, finalDiff: unifiedDiff(original, current), finalTestOutput: result.output };
+    const probeAfter = await runner.probe();
+    const report = { probe: { before: probeBefore, after: probeAfter }, fixed: result.exitCode === 0, originalFailure, attempts, finalDiff: unifiedDiff(original, current), finalTestOutput: result.output };
     fs.writeFileSync(path.join(__dirname, '..', 'report.json'), JSON.stringify(report, null, 2));
     emit('done', { fixed: report.fixed, attempts: attempts.length });
   } finally { await runner.close(); }
